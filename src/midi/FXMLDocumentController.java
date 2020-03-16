@@ -46,35 +46,15 @@ public class FXMLDocumentController implements Initializable,EventHandler<Action
     private Button vicBtn;
     @FXML
     private JFXComboBox<String> combo_devices;
-    
-    
     @FXML
-    private void handleButtonAction(ActionEvent event) throws MidiUnavailableException, InvalidMidiDataException {
-        System.out.println("You clicked me!");
-        label.setText("Hello World!");
-        
-
-        Synthesizer  synth;    
-        Sequencer    seq;    
-        MidiDevice   inputPort;
-
-        inputPort = MidiSystem.getMidiDevice( this.midiDeviceInfo[this.selectedIndex] );
-
-        inputPort.open();
-//        Transmitter transmitter = inputPort.getTransmitter();
-//        Receiver receiver = MidiSystem.getReceiver();
-//        transmitter.setReceiver(receiver);
-//        receiver.send(new ShortMessage(ShortMessage.NOTE_ON, 0, 53, 100),10);
-        
-
-        Receiver inReceiver = inputPort.getReceiver();
-        inReceiver.send(new ShortMessage(ShortMessage.NOTE_ON, 0, 36, 100),-1);
-        //inputPort.getTransmitter().setReceiver(inReceiver);
-
-        
-    }
+    private Button vicBtn1;
+    @FXML
+    private Button vicBtn11;
     
+
     MidiDevice.Info[] midiDeviceInfo;
+     MidiDevice   inputPort;
+     
     @Override
     public void initialize(URL url, ResourceBundle rb) {
         // TODO
@@ -113,7 +93,18 @@ public class FXMLDocumentController implements Initializable,EventHandler<Action
 
 
         selectedIndex = this.combo_devices.getSelectionModel().getSelectedIndex();
- 
+        try {
+            this.connectPortMIDI();
+        } catch (MidiUnavailableException ex) {
+            Logger.getLogger(FXMLDocumentController.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+    
+    private void connectPortMIDI() throws MidiUnavailableException{
+        
+        inputPort = MidiSystem.getMidiDevice( this.midiDeviceInfo[this.selectedIndex] );
+
+        inputPort.open();
     }
     
      public static void playSong(int tempo) {
@@ -210,8 +201,48 @@ public class FXMLDocumentController implements Initializable,EventHandler<Action
                 + "of the following tasks" + e.getMessage());
         }
     }
+  
+    @FXML
+    private void handleButtonAction(ActionEvent event) throws MidiUnavailableException, InvalidMidiDataException {
+        System.out.println("You clicked me!");
+        label.setText("Hello World!");
+        
 
- 
+//        Synthesizer  synth;    
+//        Sequencer    seq;    
+
+//        Transmitter transmitter = inputPort.getTransmitter();
+//        Receiver receiver = MidiSystem.getReceiver();
+//        transmitter.setReceiver(receiver);
+//        receiver.send(new ShortMessage(ShortMessage.NOTE_ON, 0, 53, 100),10);
+        
+
+        Receiver inReceiver = inputPort.getReceiver();
+        inReceiver.send(new ShortMessage(ShortMessage.NOTE_ON, 0, 45, 5),-1);
+        //inputPort.getTransmitter().setReceiver(inReceiver);
+
+        
+    }
+    @FXML
+    private void handleButtonAction1(ActionEvent event) throws InvalidMidiDataException, MidiUnavailableException {
+        
+        Receiver inReceiver = inputPort.getReceiver();
+        inReceiver.send(new ShortMessage(ShortMessage.NOTE_ON, 0,45, 75),-1);
+        
+    }
+
+    @FXML
+    private void handleButtonAction11(ActionEvent event) throws InvalidMidiDataException, MidiUnavailableException {
+        
+          Receiver inReceiver = inputPort.getReceiver();
+        inReceiver.send(new ShortMessage(ShortMessage.NOTE_ON, 0, 45, 127),-1);
+        
+    }
+
+            
+
+  
+    
 
     
 }
