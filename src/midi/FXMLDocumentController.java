@@ -5,8 +5,13 @@
  */
 package midi;
 
+import com.fazecast.jSerialComm.SerialPort;
+import com.fazecast.jSerialComm.SerialPortDataListener;
+import com.fazecast.jSerialComm.SerialPortEvent;
 import com.jfoenix.controls.JFXComboBox;
 import java.net.URL;
+import java.sql.Time;
+import java.time.LocalTime;
 import java.util.ResourceBundle;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -38,7 +43,7 @@ import javax.sound.midi.Transmitter;
  *
  * @author VAPESIN
  */
-public class FXMLDocumentController implements Initializable,EventHandler<ActionEvent> {
+public class FXMLDocumentController implements Initializable {
     
     @FXML
     private Label label;
@@ -50,62 +55,106 @@ public class FXMLDocumentController implements Initializable,EventHandler<Action
     private Button vicBtn1;
     @FXML
     private Button vicBtn11;
+    @FXML
+    private Button btnRefMIDI;
+    @FXML
+    private Button btnRefCOM;
+    @FXML
+    private JFXComboBox<String> combo_COMs;
+    
+    ObservableList listaCOMs;
+    ObservableList listaMIDI;
+    
+    int selectedIndexMIDI =-1;
+    int selectedIndexCOM =-1;
     
 
     MidiDevice.Info[] midiDeviceInfo;
-     MidiDevice   inputPort;
-     
+    MidiDevice   inputPort;
+    private SerialPort[] arrayCommPort;
+    SerialPort inputCOM;
+    
     @Override
     public void initialize(URL url, ResourceBundle rb) {
-        // TODO
-//               new Thread(()->{
-//               
-//               
-//                   try {
-//                       Thread.sleep(5000);
-//                   } catch (InterruptedException ex) {
-//                       Logger.getLogger(FXMLDocumentController.class.getName()).log(Level.SEVERE, null, ex);
-//                   }
-//                   Platform.runLater(()->{
-//               
-//                                      vicBtn.fire();
-//               });
-//               }).start();
-        ObservableList lista = FXCollections.observableArrayList();
-                // [obtain and open the three devices...]
-        midiDeviceInfo = MidiSystem.getMidiDeviceInfo();
-        for(MidiDevice.Info infoactu:midiDeviceInfo){
-            System.out.println(infoactu.getName());
-            System.out.println(infoactu.getVendor());
-            System.out.println(infoactu.getDescription());
-            System.out.println(infoactu.getVersion()+"\n");
-            lista.add((infoactu.getName() + " " + infoactu.getDescription()));
-        }
+        this.listaCOMs = FXCollections.observableArrayList();
+        this.listaMIDI = FXCollections.observableArrayList();
         
-       
-        this.combo_devices.setItems(lista);
+        this.combo_devices.setItems(listaMIDI);        
+        this.combo_COMs.setItems(listaCOMs);        
         
-        this.combo_devices.setOnAction(this);
+//        this.arrayCommPort= SerialPort.getCommPorts();                
+//        this.midiDeviceInfo = MidiSystem.getMidiDeviceInfo();
+        this.btnRefCOM.fire();
+        this.btnRefMIDI.fire();
+        
+        this.combo_devices.setOnAction(new EventHandler<ActionEvent>() {
+            @Override
+            public void handle(ActionEvent t) {
+                selectedIndexMIDI =combo_devices.getSelectionModel().getSelectedIndex();
+                try {
+                    connectPortMIDI();
+                } catch (MidiUnavailableException ex) {
+                    Logger.getLogger(FXMLDocumentController.class.getName()).log(Level.SEVERE, null, ex);
+                }
+
+            }
+        });
+        
+        this.combo_COMs.setOnAction((actionEvent)->{
+        
+            selectedIndexCOM = combo_COMs.getSelectionModel().getSelectedIndex();
+            connectCOMPort();
+        });
+        
+        
+
      }    
-    int selectedIndex =-1;
-    @Override
-    public void handle(ActionEvent t) {
 
-
-        selectedIndex = this.combo_devices.getSelectionModel().getSelectedIndex();
-        try {
-            this.connectPortMIDI();
-        } catch (MidiUnavailableException ex) {
-            Logger.getLogger(FXMLDocumentController.class.getName()).log(Level.SEVERE, null, ex);
-        }
-    }
-    
+ 
     private void connectPortMIDI() throws MidiUnavailableException{
         
-        inputPort = MidiSystem.getMidiDevice( this.midiDeviceInfo[this.selectedIndex] );
+        inputPort = MidiSystem.getMidiDevice(this.midiDeviceInfo[this.selectedIndexMIDI] );
 
         inputPort.open();
     }
+    
+    private void connectCOMPort() {
+        if(selectedIndexCOM ==-1)
+            return;
+        inputCOM = arrayCommPort[(selectedIndexCOM)];
+        inputCOM.openPort();//abrir puerto
+        inputCOM.addDataListener(new SerialPortDataListener() {
+           @Override
+           public int getListeningEvents() { return SerialPort.LISTENING_EVENT_DATA_RECEIVED; }
+           @Override
+           public void serialEvent(SerialPortEvent event)
+           {
+             // StringBuilder txtLog = new StringBuilder();
+              byte[] newData = event.getReceivedData();
+              //System.out.println("Received data of size: " + newData.length);
+              Receiver inReceiver;
+               try {
+                  int vel = newData[0]*3;
+                   inReceiver = inputPort.getReceiver();
+                   inReceiver.send(new ShortMessage(ShortMessage.NOTE_ON, 0, 45, vel>126?127:vel),-1);
+               } catch (MidiUnavailableException ex) {
+                   Logger.getLogger(FXMLDocumentController.class.getName()).log(Level.SEVERE, null, ex);
+               } catch (InvalidMidiDataException ex) {
+                   Logger.getLogger(FXMLDocumentController.class.getName()).log(Level.SEVERE, null, ex);
+               }
+//              for (int i = 0; i < newData.length; ++i)
+//                System.out.print((char)newData[i]);
+              
+               //System.out.println(txtLog);
+               
+               
+           }
+        }); 
+        
+        
+
+    }
+
     
      public static void playSong(int tempo) {
         try {
@@ -234,10 +283,48 @@ public class FXMLDocumentController implements Initializable,EventHandler<Action
     @FXML
     private void handleButtonAction11(ActionEvent event) throws InvalidMidiDataException, MidiUnavailableException {
         
-          Receiver inReceiver = inputPort.getReceiver();
+        Receiver inReceiver = inputPort.getReceiver();
         inReceiver.send(new ShortMessage(ShortMessage.NOTE_ON, 0, 45, 127),-1);
         
     }
+
+    @FXML
+    private void refreshMidi_OnAction(ActionEvent event) {
+         this.midiDeviceInfo = MidiSystem.getMidiDeviceInfo();
+         setListMIDI();
+    }
+
+    @FXML
+    private void refreshCOM_OnAction(ActionEvent event) {
+        this.arrayCommPort= SerialPort.getCommPorts();
+        setListCOM();
+    }
+
+    private void setListCOM() {
+        int i = 0;
+        listaCOMs.clear();
+        for(SerialPort serialPortActual : arrayCommPort){
+            String descriptiveName= serialPortActual.getDescriptivePortName();
+            
+            listaCOMs.add(i +"-"+ descriptiveName);
+            i++;
+
+        }
+    }
+
+    private void setListMIDI() {
+        listaMIDI.clear();
+        for(MidiDevice.Info infoactu:midiDeviceInfo){
+            System.out.println(infoactu.getName());
+            System.out.println(infoactu.getVendor());
+            System.out.println(infoactu.getDescription());
+            System.out.println(infoactu.getVersion()+"\n");
+            listaMIDI.add((infoactu.getName() + " " + infoactu.getDescription()));
+        }               
+
+        
+    }
+
 
             
 
